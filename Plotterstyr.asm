@@ -1,11 +1,4 @@
-/*
- * Plotterstyr.asm
- *
- *  Created: 2020-02-25 14:10:53
- *   Author: ludbe973
- */ 
-
- SEKVENS:
+SEKVENS:
  .db $01, $09, $08, $0A, $02, $06, $04, $05
 
 COLD:
@@ -16,6 +9,9 @@ COLD:
 	call HW_INIT
 
 WARM:
+	sbis SPSR,SPIF
+	rjmp warm
+	in r16, SPDR
 	call YUP
 	call XRIGHT
 	call XLEFT
@@ -136,7 +132,7 @@ HW_INIT:
 
 	sbi DDRB,6 ; slave setup
 	ldi r16,(1<<SPE)
-
-
+	ldi r16, $FF
+	out SPDR, r16
 	pop r16
 	ret
