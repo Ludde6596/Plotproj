@@ -10,8 +10,8 @@ COLD:
 	out SPH,r16
 	ldi r16,LOW(RAMEND)
 	out SPL,r16
-	ldi r17,$00
-	ldi r18,$00
+	ldi r17,$00 ;kommer vara bytes i sram
+	ldi r18,$00 ;kommer vara bytes i sram
 	call HW_INIT
  
 WARM:
@@ -20,7 +20,7 @@ WARM:
 
 JOYSTICK:
 	push r16
-	ldi r16,(1<<MUX0)|(1<<MUX3)
+	ldi r16,0
 	out ADMUX,r16
 	ldi r16,(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN)
 	out ADCSRA,r16
@@ -43,6 +43,8 @@ X_CHECK:
 	dec r17
 
 JOYSTICK_Y:
+	ldi r16,(1<<MUX0)
+	out ADMUX,r16
 	ldi r16,(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN)
 	out ADCSRA,r16
 CONVERT_2:
