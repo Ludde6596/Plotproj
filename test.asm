@@ -1,4 +1,4 @@
-//Test, osäker på om detta ens gör något
+//Test, osÃ¤ker pÃ¥ om detta ens gÃ¶r nÃ¥got
 
 .dseg
 POSX: .byte 1 ; Own position
