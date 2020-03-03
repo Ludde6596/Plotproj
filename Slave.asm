@@ -8,10 +8,15 @@ COLD:
 
 RECEIVE:
 	sbi PORTB,1
+	ldi r16,$07
+	out SPDR,r16
+WAIT:
 	sbis SPSR,SPIF
-	rjmp RECEIVE
+	rjmp WAIT
+	sbi PORTB,0
 	in r16,SPDR
 	cbi PORTB,1
+	
 	out PORTA,r16
 	call DELAY
 	rjmp RECEIVE
@@ -20,11 +25,10 @@ HW_INIT:
 	ldi r16,$FF
 	out DDRA,r16
 	sbi DDRB,1
+	sbi DDRB,0
 	sbi DDRB,6
-	ldi r16,(1<<SPE)||(1<< SPR1)
+	ldi r16,(1<<SPE)
 	out SPCR,r16
-	ldi r16,$07
-	out SPDR,r16
 	ret
 
 DELAY:
