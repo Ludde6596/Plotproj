@@ -15,9 +15,9 @@ WAIT:
 	rjmp WAIT
 	sbi PORTB,0
 	in r16,SPDR
-	cbi PORTB,1
 	
 	out PORTA,r16
+	cbi PORTB,1
 	call DELAY
 	rjmp RECEIVE
 
