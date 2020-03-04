@@ -19,19 +19,19 @@ SEND:
 WAIT:
 	sbis SPSR,SPIF
 	rjmp WAIT
-	sbi PORTB,0
 	in r16,SPDR
 	cbi PORTB,5
 DONE:
-	rjmp DONE
+	rjmp SEND
 
 HW_INIT:
 	sbi DDRB,0
 	sbi DDRB,4
 	sbi DDRB,5
 	sbi DDRB,7
-	sbi PORTB,4
-	ldi r16, (1<<MSTR)||(1<<SPE)||(1<<SPR1)
+	cbi PORTB,4
+	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
 	out SPCR,r16
 	ret
+
 
