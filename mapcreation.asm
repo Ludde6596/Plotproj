@@ -12,7 +12,7 @@
 	.equ ORIGO = 3		;63 riktiga värdet
 
 .dseg
-.org SRAM_START
+.org $0100
 Y_VAL: .byte MAPSIZE
 Y_CORD:	.byte 1
 X_CORD:	.byte 1
