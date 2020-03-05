@@ -24,7 +24,7 @@ INPUT:
 	rjmp INPUT
 	in r16, SPDR
 	cbi DDRB,3		;Mastern kan inte skicka information
-	;Kontroll av indata för att veta hur plottern ska styras
+	;Kontroll av indata fÃ¶r att veta hur plottern ska styras
 	cpi r16,$01
 	breq Y_UP
 	cpi r16,$02
@@ -204,12 +204,12 @@ YDOWN2:
 	pop r16
 	ret
 
-DELAY: ;1ms delay
+DELAY: ;1ms delay pÃ¥ 8MHz
 	push r16
 	push r17
-	ldi r16, 4
+	ldi r16, $20
 DELAY1:
-	ldi r17, $FF
+	ldi r17, $FA
 DELAY2:
 	dec r17
 	brne DELAY2
@@ -227,7 +227,7 @@ HW_INIT:
 	ldi r16,$01
 	out DDRB,r16
 
-	sbi DDRB,3 ;controll bit för master
+	sbi DDRB,3 ;controll bit fÃ¶r master
 	sbi DDRB,6 ; slave setup
 	ldi r16,(1<<SPE)
 	out SPCR,r16
