@@ -7,12 +7,12 @@
 
 
 ; Replace with your application code
-		.equ MAPSIZE = 10
-	.equ STEPSIZE = 2
-	.equ ORIGO = 3		;63 riktiga värdet
+ .equ MAPSIZE = 20
+	.equ STEPSIZE = 5
+	.equ ORIGO = 63		;63 riktiga värdet
 
 .dseg
-.org $0100
+.org $0200
 Y_VAL: .byte MAPSIZE
 Y_CORD:	.byte 1
 X_CORD:	.byte 1
@@ -32,7 +32,8 @@ COLD:
 WARM:
 	call MAP_CREATION
 	call PLOT_MAP
-	rjmp WARM
+FINISH:
+	rjmp FINISH
 
 MAP_CREATION:
 	push r16
@@ -49,9 +50,9 @@ MAP_1:
 	cpi r16,MAPSIZE
 	breq MAP_2
 RANDOM:
-	;call DELAY
+	call DELAY
 	in r18,TCNT0
-	andi r18,$07	;and med $7F för att få bort msb 
+	andi r18,$7F	;and med $7F för att få bort msb 
 	cpi r18,$7E		
 	brpl R_ADJUST	;kontroll av rand för att den ej ska bli större än 126	
 	rjmp MAP_2
@@ -86,6 +87,7 @@ PLOT_MAP:
 	ldi ZL,LOW(Y_VAL)
 PLOT_LOOP:
 	ld r17,Z+
+	out PORTA,r17
 	cp r17,r16			;Jämför Y_VAL med nuvarande y-koord
 	breq X_ADJUST
 	brpl YUP_ADJUST
@@ -93,7 +95,7 @@ YDOWN_ADJUST:
 	;;Skicka till plotter
 	ldi r19,$02
 	push r19
-	;call SEND
+	call SEND
 	pop r19
 	dec r16
 	cp r17,r16
@@ -103,7 +105,7 @@ YUP_ADJUST:
 	;;Skicka till plotter
 	ldi r19,$01
 	push r19
-	;call SEND
+	call SEND
 	pop r19
 	inc r16
 	cp r17,r16
@@ -113,7 +115,7 @@ X_ADJUST:
 	;;Skicka till plotter
 	ldi r19,$04
 	push r19
-	;call SEND
+	call SEND
 	pop r19
 	inc r18
 	cpi r18,MAPSIZE
@@ -152,14 +154,17 @@ SEND:
 	in ZH,SPH
 	in ZL,SPL
 SEND1:
-	sbis PINB,3
+	sbis PINB,1
 	rjmp SEND1
+	;call DELAY
+	cbi PORTB,4		;Aktiverar slavens spi
 	ldd r17,Z+6
 	out SPDR,r17
 WAIT:
 	sbis SPSR,SPIF
 	rjmp WAIT
 	in r17,SPDR
+	sbi PORTB,4
 
 	pop r17
 	pop ZL
@@ -167,6 +172,9 @@ WAIT:
 	ret
 
 HW_INIT:
+
+	ldi r16,$FF
+	out DDRA,r16
 	;Timer0--------------
 	ldi r16,(1<<CS00) 
 	out TCCR0,r16
@@ -178,6 +186,7 @@ HW_INIT:
 	sbi DDRB,5
 	sbi DDRB,7
 	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
+	sbi PORTB,4
 	out SPCR,r16
 	
 	ret
