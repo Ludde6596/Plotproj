@@ -13,23 +13,22 @@ COLD:
 SEND:
 	sbis PINB,1
 	rjmp SEND
-	;sbi PORTB,0
-	ldi r16,$07
+	cbi PORTB,4
+	ldi r16,$01
 	out SPDR,r16
 WAIT:
 	sbis SPSR,SPIF
 	rjmp WAIT
 	in r16,SPDR
-	cbi PORTB,5
+	sbi PORTB,4
 DONE:
 	rjmp SEND
 
 HW_INIT:
-	sbi DDRB,0
 	sbi DDRB,4
 	sbi DDRB,5
 	sbi DDRB,7
-	cbi PORTB,4
+	sbi PORTB,4
 	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
 	out SPCR,r16
 	ret
