@@ -7,7 +7,7 @@
 
 
 ; Replace with your application code
-SEKVENS:
+ SEKVENS:
  .db $01, $09, $08, $0A, $02, $06, $04, $05
 
 COLD:
@@ -18,12 +18,16 @@ COLD:
 	call HW_INIT
 
 WARM:
+	call PENDOWN
+SEND:
 	sbi PORTB,3		;Mastern kan skicka information
 INPUT:
 	sbis SPSR,SPIF
 	rjmp INPUT
-	in r16, SPDR
 	cbi DDRB,3		;Mastern kan inte skicka information
+	in r16, SPDR
+	andi r16,$07
+	out PORTA,r16
 	;Kontroll av indata för att veta hur plottern ska styras
 	cpi r16,$01
 	breq Y_UP
@@ -31,12 +35,8 @@ INPUT:
 	breq Y_DOWN
 	cpi r16,$04
 	breq X_STEP
-	cpi r16,$07
-	breq X_BACK
-	cpi r16,$05
-	breq XY_UP
 	cpi r16,$06
-	breq XY_DOWN
+	breq X_BACK
 	rjmp NO_MOV
 
 Y_UP:
@@ -50,70 +50,49 @@ X_STEP:
 	rjmp NO_MOV
 X_BACK:
 	call XBACK
-	rjmp NO_MOV
-XY_UP:
-	call YUPXSTEP
-	rjmp NO_MOV
-XY_DOWN:
-	call YDOWNXSTEP
 NO_MOV:
-	rjmp WARM ;ENDOFMAIN
+	rjmp SEND ;ENDOFMAIN
 
 ;UNDERPROGRAM
-YDOWNXSTEP:
-	push r16
-	ldi r16,$14
-YDOWNXSTEP1:
-	call XRIGHT
-	call YDOWN
-	dec r16 
-	brne YDOWNXSTEP1
-	ret
-
-YUPXSTEP:
-	push r16
-	ldi r16,$14
-YUPXSTEP1:
-	call XRIGHT
-	call YUP
-	dec r16 
-	brne YUPXSTEP1
-	ret
 
 XSTEP:
 	push r16
-	ldi r16,$14
+	ldi r16,$02
 XSTEP1:
 	call XRIGHT
 	dec r16 
 	brne XSTEP1
+	pop r16
 	ret
 
 XBACK:
 	push r16
-	ldi r16,$14
+	ldi r16,$02
 XBACK1:
 	call XLEFT
 	dec r16 
 	brne XBACK1
+	pop r16
 	ret
 
 YUPSTEP:
 	push r16
-	ldi r16,$14
+	ldi r16,$02
 YUPSTEP1:
 	call YUP
 	dec r16 
 	brne YUPSTEP1
+	pop r16
 	ret
 
 YDOWNSTEP:
 	push r16
-	ldi r16,$14
+	ldi r16,$02
 YDOWNSTEP1:
 	call YDOWN
 	dec r16 
 	brne YDOWNSTEP1
+	pop r16
 	ret
 
 XRIGHT:
@@ -204,6 +183,14 @@ YDOWN2:
 	pop r16
 	ret
 
+PENDOWN:
+	sbi PORTB,0
+	ret
+
+PENUP: 
+	cbi PORTB,0
+	ret
+
 DELAY: ;1ms delay på 8MHz
 	push r16
 	push r17
@@ -224,8 +211,7 @@ HW_INIT:
 	ldi r16,$FF
 	out DDRA,r16
 	out DDRD,r16
-	ldi r16,$01
-	out DDRB,r16
+	sbi DDRB,0
 
 	sbi DDRB,3 ;controll bit för master
 	sbi DDRB,6 ; slave setup
