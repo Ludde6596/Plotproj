@@ -4,7 +4,7 @@
  *  Created: 2020-03-05 11:15:13
  *   Author: ludbe973
  */ 
- .dseg
+  .dseg
 POSX: .byte 1 ; Own position
 POSY: .byte 1
 
@@ -32,6 +32,7 @@ START:
 
 WARM:
 	call JOYSTICK
+	call DELAY
 	rjmp WARM
 
 JOYSTICK:
@@ -47,8 +48,8 @@ WAIT_1:
 	rjmp WAIT_1
 	in r16,ADCL
 	in r16,ADCH
-	andi r16,$3
-	cpi r16,$3
+	andi r16,$03
+	cpi r16,$03
 	brne X_CHECK
 	INCSRAM POSX
 	;;Skicka till plotter
@@ -59,7 +60,12 @@ WAIT_1:
 X_CHECK:
 	cpi r16,0
 	brne JOYSTICK_Y
-	;DECSRAM POSX
+	DECSRAM POSX
+	;;Skicka till plotter
+	ldi r17,$06
+	push r17
+	call SEND
+	pop r17
 JOYSTICK_Y:
 	ldi r16,(1<<MUX0)
 	out ADMUX,r16
@@ -72,8 +78,8 @@ WAIT_2:
 	jmp WAIT_2
 	in r16,ADCL
 	in r16,ADCH
-	andi r16,$3
-	cpi r16,$3
+	andi r16,$03
+	cpi r16,$03
 	brne Y_CHECK
 	INCSRAM POSY
 	;;Skicka till plotter
@@ -115,6 +121,21 @@ WAIT:
 	pop ZH
 	ret
 
+DELAY: ;1ms delay på 8MHz
+	push r16
+	push r17
+	ldi r16, $FF
+DELAY1:
+	ldi r17, $FF
+DELAY2:
+	dec r17
+	brne DELAY2
+	dec r16
+	brne DELAY1
+	pop r17
+	pop r16
+	ret
+
 HW_INIT:
 	ldi r16,$F0
 	out DDRA,r16
@@ -122,6 +143,6 @@ HW_INIT:
 	sbi DDRB,5
 	sbi DDRB,7
 	cbi PORTB,4
-	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
+	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR0)
 	out SPCR,r16
 	ret
