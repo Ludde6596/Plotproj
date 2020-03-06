@@ -7,7 +7,7 @@
 
 
 ; Replace with your application code
- SEKVENS:
+SEKVENS:
  .db $01, $09, $08, $0A, $02, $06, $04, $05
 
 COLD:
@@ -20,14 +20,12 @@ COLD:
 WARM:
 	call PENDOWN
 SEND:
-	sbi PORTB,3		;Mastern kan skicka information
+	sbi PORTB,1		;Mastern kan skicka information
 INPUT:
 	sbis SPSR,SPIF
 	rjmp INPUT
-	cbi DDRB,3		;Mastern kan inte skicka information
 	in r16, SPDR
-	andi r16,$07
-	out PORTA,r16
+	cbi PORTB,1		;Mastern kan inte skicka information
 	;Kontroll av indata för att veta hur plottern ska styras
 	cpi r16,$01
 	breq Y_UP
@@ -213,7 +211,7 @@ HW_INIT:
 	out DDRD,r16
 	sbi DDRB,0
 
-	sbi DDRB,3 ;controll bit för master
+	sbi DDRB,1 ;controll bit för master
 	sbi DDRB,6 ; slave setup
 	ldi r16,(1<<SPE)
 	out SPCR,r16
