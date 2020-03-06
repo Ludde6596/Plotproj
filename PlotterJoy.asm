@@ -4,7 +4,7 @@
  *  Created: 2020-03-05 11:15:13
  *   Author: ludbe973
  */ 
- .dseg
+  .dseg
 POSX: .byte 1 ; Own position
 POSY: .byte 1
 
@@ -29,6 +29,7 @@ START:
 	ldi r16,LOW(RAMEND)
 	out SPL,r16
 	call HW_INIT
+
 
 WARM:
 	call JOYSTICK
@@ -59,6 +60,7 @@ WAIT_1:
 	push r17
 	call SEND
 	pop r17
+	rjmp JOYSTICK_Y
 X_CHECK:
 	cpi r16,0
 	brne JOYSTICK_Y
@@ -89,6 +91,7 @@ WAIT_2:
 	push r17
 	call SEND
 	pop r17
+	rjmp Y_FIN
 Y_CHECK:
 	cpi r16,0
 	brne Y_FIN
@@ -113,12 +116,15 @@ SEND:
 SEND1:
 	sbis PINB,1
 	rjmp SEND1
+	;call DELAY
+	cbi PORTB,4		;Aktiverar slavens spi
 	ldd r17,Z+6
 	out SPDR,r17
 WAIT:
 	sbis SPSR,SPIF
 	rjmp WAIT
 	in r17,SPDR
+	sbi PORTB,4
 
 	pop r17
 	pop ZL
@@ -146,7 +152,7 @@ HW_INIT:
 	sbi DDRB,4
 	sbi DDRB,5
 	sbi DDRB,7
-	cbi PORTB,4
-	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR0)
+	sbi PORTB,4
+	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
 	out SPCR,r16
 	ret
