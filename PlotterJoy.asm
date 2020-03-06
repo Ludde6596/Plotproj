@@ -4,7 +4,7 @@
  *  Created: 2020-03-05 11:15:13
  *   Author: ludbe973
  */ 
-  .dseg
+ .dseg
 POSX: .byte 1 ; Own position
 POSY: .byte 1
 
@@ -37,6 +37,8 @@ WARM:
 
 JOYSTICK:
 	push r16
+	push r17
+	
 	ldi r16,0
 	out ADMUX,r16
 	ldi r16,(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN)
@@ -97,6 +99,8 @@ Y_CHECK:
 	call SEND
 	pop r17
 Y_FIN:
+	
+	pop r17
 	pop r16
 	ret
 
@@ -107,7 +111,7 @@ SEND:
 	in ZH,SPH
 	in ZL,SPL
 SEND1:
-	sbis PINB,3
+	sbis PINB,1
 	rjmp SEND1
 	ldd r17,Z+6
 	out SPDR,r17
@@ -124,9 +128,9 @@ WAIT:
 DELAY: ;1ms delay på 8MHz
 	push r16
 	push r17
-	ldi r16, $FF
+	ldi r16, $A0
 DELAY1:
-	ldi r17, $FF
+	ldi r17, $FA
 DELAY2:
 	dec r17
 	brne DELAY2
