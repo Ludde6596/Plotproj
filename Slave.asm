@@ -1,5 +1,5 @@
 
-COLD:
+ COLD:
 	ldi r16,HIGH(RAMEND)
 	out SPH,r16
 	ldi r16,LOW(RAMEND)
@@ -13,19 +13,16 @@ RECEIVE:
 WAIT:
 	sbis SPSR,SPIF
 	rjmp WAIT
-	sbi PORTB,0
 	in r16,SPDR
-	
 	out PORTA,r16
 	cbi PORTB,1
-	call DELAY
+	;call DELAY
 	rjmp RECEIVE
 
 HW_INIT:
 	ldi r16,$FF
 	out DDRA,r16
 	sbi DDRB,1
-	sbi DDRB,0
 	sbi DDRB,6
 	ldi r16,(1<<SPE)
 	out SPCR,r16
