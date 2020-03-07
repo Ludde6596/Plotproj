@@ -7,7 +7,7 @@
 
 
 ; Replace with your application code
-SEKVENS:
+ SEKVENS:
  .db $01, $09, $08, $0A, $02, $06, $04, $05
 
 COLD:
@@ -147,7 +147,7 @@ XLEFT2:
 	pop r16
 	ret
 
-YUP:
+YDOWN:
 	push r16
 	push r17
 	push ZH
@@ -155,20 +155,20 @@ YUP:
 	ldi ZH,HIGH(SEKVENS*2)
 	ldi ZL,LOW(SEKVENS*2)
 	ldi r17, $00
-YUP2:
+YDOWN2:
 	lpm r16, Z+
 	out PORTA, r16
 	inc r17
 	call DELAY
 	cpi r17, $08
-	brne YUP2
+	brne YDOWN2
 	pop ZL
 	pop ZH
 	pop r17
 	pop r16
 	ret
 
-YDOWN:
+YUP:
 	push r16
 	push r17
 	push ZH
@@ -177,14 +177,14 @@ YDOWN:
 	ldi ZL,LOW(SEKVENS*2)
 	adiw Z,$07
 	ldi r17, $00
-YDOWN2:
+YUP2:
 	lpm r16, Z
 	subi ZL,$01
 	out PORTA, r16
 	inc r17
 	call DELAY
 	cpi r17, $08
-	brne YDOWN2
+	brne YUP2
 	pop ZL
 	pop ZH
 	pop r17
