@@ -18,7 +18,7 @@ COLD:
 	call HW_INIT
 
 WARM:
-	call PENDOWN
+
 SEND:
 	sbi PORTB,1		;Mastern kan skicka information
 INPUT:
@@ -35,8 +35,18 @@ INPUT:
 	breq X_STEP
 	cpi r16,$06
 	breq X_BACK
+	cpi r16,$03
+	breq PEN_DOWN
+	cpi r16,$05
+	breq PEN_UP
 	rjmp NO_MOV
 
+PEN_DOWN:
+	call PENDOWN
+	rjmp NO_MOV
+PEN_UP:
+	call PENUP
+	rjmp NO_MOV
 Y_UP:
 	call YUPSTEP
 	rjmp NO_MOV
