@@ -7,12 +7,12 @@
 
 
 ; Replace with your application code
- .equ MAPSIZE = 20
+  .equ MAPSIZE = 20
 	.equ STEPSIZE = 5
 	.equ ORIGO = 63		;63 riktiga värdet
 
 .dseg
-.org $0200
+.org $0100
 Y_VAL: .byte MAPSIZE
 Y_CORD:	.byte 1
 X_CORD:	.byte 1
@@ -99,7 +99,7 @@ YDOWN_ADJUST:
 	pop r19
 	dec r16
 	cp r17,r16
-	brne PLOT_LOOP
+	brne YDOWN_ADJUST
 	rjmp X_ADJUST
 YUP_ADJUST:
 	;;Skicka till plotter
@@ -109,7 +109,7 @@ YUP_ADJUST:
 	pop r19
 	inc r16
 	cp r17,r16
-	brne PLOT_LOOP
+	brne YUP_ADJUST
 	rjmp X_ADJUST
 X_ADJUST:
 	;;Skicka till plotter
