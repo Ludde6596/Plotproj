@@ -32,9 +32,10 @@ START:
 
 
 WARM:
+	call PEN_DOWN
+SPELAR_LOOP:
 	call JOYSTICK
-	call DELAY
-	rjmp WARM
+	rjmp SPELAR_LOOP
 
 JOYSTICK:
 	push r16
@@ -49,9 +50,7 @@ CONVERT_1:
 WAIT_1:
 	sbic ADCSRA,ADSC
 	rjmp WAIT_1
-	in r16,ADCL
 	in r16,ADCH
-	andi r16,$03
 	cpi r16,$03
 	brne X_CHECK
 	INCSRAM POSX
@@ -62,7 +61,7 @@ WAIT_1:
 	pop r17
 	rjmp JOYSTICK_Y
 X_CHECK:
-	cpi r16,0
+	cpi r16,$00
 	brne JOYSTICK_Y
 	DECSRAM POSX
 	;;Skicka till plotter
@@ -80,9 +79,7 @@ CONVERT_2:
 WAIT_2:
 	sbic ADCSRA,ADSC
 	jmp WAIT_2
-	in r16,ADCL
 	in r16,ADCH
-	andi r16,$03
 	cpi r16,$03
 	brne Y_CHECK
 	INCSRAM POSY
@@ -93,7 +90,7 @@ WAIT_2:
 	pop r17
 	rjmp Y_FIN
 Y_CHECK:
-	cpi r16,0
+	cpi r16,$00
 	brne Y_FIN
 	DECSRAM POSY
 	;;Skicka till plotter
@@ -116,7 +113,6 @@ SEND:
 SEND1:
 	sbis PINB,1
 	rjmp SEND1
-	;call DELAY
 	cbi PORTB,4		;Aktiverar slavens spi
 	ldd r17,Z+6
 	out SPDR,r17
@@ -129,6 +125,45 @@ WAIT:
 	pop r17
 	pop ZL
 	pop ZH
+	ret
+
+PEN_DOWN:
+	push r19
+	
+	;;Skicka till plotter
+	ldi r19,$03
+	push r19
+	call SEND
+	pop r19
+
+	pop r19
+	ret
+
+PEN_UP:
+	push r19
+	
+	;;Skicka till plotter
+	ldi r19,$05
+	push r19
+	call SEND
+	pop r19
+
+	pop r19
+	ret
+
+PLAYER_DELAY: ;250ms delay på 8MHz
+	push r16
+	push r17
+	ldi r16, $04
+PLAYER_DELAY1:
+	ldi r17, $FA
+PLAYER_DELAY2:
+	dec r17
+	brne PLAYER_DELAY2
+	dec r16
+	brne PLAYER_DELAY1
+	pop r17
+	pop r16
 	ret
 
 DELAY: ;1ms delay på 8MHz
@@ -145,6 +180,7 @@ DELAY2:
 	pop r17
 	pop r16
 	ret
+
 
 HW_INIT:
 	ldi r16,$F0
