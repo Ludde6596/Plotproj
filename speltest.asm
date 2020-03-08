@@ -4,31 +4,16 @@
  *  Created: 2019-12-15 14:33:33
  *   Author: ludbe973
  */ 
- ; --- lab4spel.asm
+.equ MAPSIZE = 50
+.equ STEPSIZE = 4
+.equ ORIGO = 7	;63 riktiga värdet
 
-	.equ VMEM_SZ     = 5 ; #rows on display
-	.equ AD_CHAN_X   = 0 ; ADC0=PA0, PORTA bit 0 X-led
-	.equ AD_CHAN_Y   = 1 ; ADC1=PA1, PORTA bit 1 Y-led
-	.equ GAME_SPEED  = 150 ; inter-run delay (millisecs)
-	.equ PRESCALE    = 7 ; AD-prescaler value
-	.equ BEEP_PITCH  = 8 ; Victory beep pitch
-	.equ BEEP_LENGTH = 100 ; Victory beep length
-
-; ---------------------------------------
-; --- Memory layout in SRAM
 .dseg
-.org SRAM_START
-POSX: .byte 1 ; Own position
-POSY: .byte 1
-TPOSX: .byte 1 ; Target position
-TPOSY: .byte 1
-LINE: .byte 1 ; Current line
-VMEM: .byte VMEM_SZ ; Video MEMory
-SEED: .byte 1 ; Seed for Random
-
-; ---------------------------------------
-; --- Macros for inc/dec-rementing
-; --- a byte in SRAM
+.org $0100
+Y_VAL: .byte MAPSIZE
+Y_CORD:	.byte 1
+X_CORD:	.byte 1
+POINTS: .byte 1
 .macro INCSRAM ; inc byte in SRAM
 	lds r16,@0
 	inc r16
@@ -40,110 +25,285 @@ SEED: .byte 1 ; Seed for Random
 	dec r16
 	sts @0,r16
 .endmacro
+	
+;--------------------------------
+;------------- KOD --------------
 
-; ---------------------------------------
-; --- Code
 .cseg
-.org $0
-jmp START
-.org INT0addr
-jmp MUX
-
-
-START:
-	ldi r16, HIGH(RAMEND)
+.org 0
+jmp COLD	
+;.org OVF0addr interrupt address
+;jmp GEN_SEED
+COLD: 
+	ldi r16,HIGH(RAMEND)
 	out SPH,r16
 	ldi r16,LOW(RAMEND)
 	out SPL,r16
 	call HW_INIT
-	call WARM
-RUN:
-	call JOYSTICK
-	call ERASE_VMEM
-	call UPDATE
-	call GAME_DELAY
 
-;*** Avg�r om tr�ff ***
-	lds r17,POSX
-	lds r16,TPOSX
-	cp r17,r16
-	brne NO_HIT
+WARM:
+	call PEN_UP
+	sbis PINB,2
+	rjmp WARM
+	call MAP_CREATION
+	call PEN_DOWN
+	call PLOT_MAP
+	call PEN_UP
+	call RESET_MAP
+GAME_START:
+	call PEN_DOWN
+	call PLAY_GAME
+	call PEN_UP
+	call RESET_MAP
+POINT_TESTING:
+	lds r16,POINTS
+	out PORTD,r16
+FINISH:
+	rjmp FINISH
 
-	lds r17,POSY
-	lds r16,TPOSY
-	cp r17,r16
-	brne NO_HIT
-
-	ldi r16,BEEP_LENGTH
-	call BEEP
-	call WARM
-NO_HIT:
-	jmp RUN
-
-; ---------------------------------------
-; --- Multiplex display
-MUX:
-	push r20
-	in r20,SREG
-	push r20
+MAP_CREATION:
 	push r16
-	push XH
-	push XL
+	push r17
+	push r18
+	push r20
+	push YH
+	push YL
+	
+	ldi r16,MAPSIZE ;antal loops
+	ldi YH,HIGH(Y_VAL)
+	ldi YL,LOW(Y_VAL)
+	ldi r18,1
+MAP_1:
+	ldi r17,STEPSIZE
+	cpi r16,MAPSIZE
+	brne RANDOM
+	ldi r18,ORIGO
+	breq MAP_2
+RANDOM:
+	ldi r20, $F5
+	;in r18,TCNT0	;TCNT0
+	mul r18,r20
+	in r20,TCNT0
+	add r18,r20
 
-	INCSRAM SEED ;plussar p� seed
-	lds r16,LINE
-	ldi XH,HIGH(VMEM)
-	ldi XL,LOW(VMEM)
-	add XL,r16
-	ld r20,X
-	swap r16
-	out PORTA,r16
-	out PORTB,r20
-	swap r16
-	inc r16
-	cpi r16,5
-	brne MUX_2
-	clr r16
-MUX_2:
-	sts LINE,r16
-
-	pop XL
-	pop XH
+	andi r18,$0F	;and med $7F för att få bort msb 
+	cpi r18,$0E	
+	brpl R_ADJUST	;kontroll av rand för att den ej ska bli större än 126	
+	rjmp MAP_2
+R_ADJUST:
+	subi r18,ORIGO
+MAP_2:
+	;set Y_CORD VALUES WITH RANDOM
+	st Y+,r18
+	dec r16
+	dec r17
+	brne MAP_2
+	cpi r16,$00
+	brne MAP_1
+	
+	pop YL
+	pop YH
+	pop r20
+	pop r18
+	pop r17
 	pop r16
-	pop r20
-	out SREG,r20
-	pop r20
-	reti
+	ret
 
-; ---------------------------------------
-; --- JOYSTICK Sense stick and update POSX, POSY
-; --- Uses r16
+PLOT_MAP:
+	push r16
+	push r17
+	push r18
+	push r19
+	push ZH
+	push ZL
+
+	ldi r16,ORIGO	;sätter ut y-origo
+	ldi r18,$00		;sätter ut x-origo
+	ldi ZH,HIGH(Y_VAL)
+	ldi ZL,LOW(Y_VAL)
+PLOT_LOOP:
+	ld r17,Z+
+	out PORTA,r17
+	cp r17,r16			;Jämför Y_VAL med nuvarande y-koord
+	breq X_ADJUST
+	brpl YUP_ADJUST
+YDOWN_ADJUST:
+	;;Skicka till plotter
+	ldi r19,$02
+	push r19
+	call SEND
+	pop r19
+	dec r16
+	cp r17,r16
+	brne YDOWN_ADJUST
+	rjmp X_ADJUST
+YUP_ADJUST:
+	;;Skicka till plotter
+	ldi r19,$01
+	push r19
+	call SEND
+	pop r19
+	inc r16
+	cp r17,r16
+	brne YUP_ADJUST
+	rjmp X_ADJUST
+X_ADJUST:
+	;;Skicka till plotter
+	ldi r19,$04
+	push r19
+	call SEND
+	pop r19
+	inc r18
+	cpi r18,MAPSIZE
+	brne PLOT_LOOP
+	sts Y_CORD,r16
+	sts X_CORD,r18
+	pop ZL
+	pop ZH
+	pop r19
+	pop r18
+	pop r17 
+	pop r16
+	ret
+
+
+RESET_MAP:
+	push r17
+	push r18
+	push r19
+
+	lds	r18, X_CORD		;LADDAR x-koordinat från sram
+	lds r17, Y_CORD		;LADDAR y-koordinat från sram
+X_RESET:
+	;;Skicka till plotter
+	ldi r19,$06
+	push r19
+	call SEND
+	pop r19
+	dec r18
+	brne X_RESET
+Y_RESET:
+	cpi r17,ORIGO
+	breq RESET_DONE
+	brpl Y_RESET1
+Y_RESET2:
+	;;Skicka till plotter
+	ldi r19,$01
+	push r19
+	call SEND
+	pop r19
+	inc r17
+	cpi r17,ORIGO
+	brmi Y_RESET2
+	rjmp RESET_DONE
+Y_RESET1:
+	;;Skicka till plotter
+	ldi r19,$02
+	push r19
+	call SEND
+	pop r19
+	dec r17
+	cpi r17,ORIGO
+	brpl Y_RESET1
+RESET_DONE:
+	ldi r18,$00
+	ldi r17,ORIGO
+	sts Y_CORD,r17
+	sts X_CORD,r18
+
+	pop r19
+	pop r18
+	pop r17
+	ret
+
+;Spelar och poäng program-----------------
+
+PLAY_GAME:
+	push r17
+	push r18
+	push r19
+	push r20
+	push YH
+	push YL
+	ldi YH,HIGH(Y_VAL)
+	ldi YL,LOW(Y_VAL)
+	ldi r20,$00
+PLAY_LOOP:
+	lds r17,X_CORD				;Loop för spel omgång
+	call PLAYER_DELAY
+	call JOYSTICK
+	lds r18,X_CORD
+	cp r17,r18
+	breq PLAY_LOOP
+POINT_CALC:
+	ld r17,Y+
+	lds r19,Y_CORD
+	cp r17,r19			;Kontroll om spelaren ligger på samma YPOS som kartan 
+	brne NO_POINT		;Poäng om Y_CORD = Y_VAL på samma XPOS
+	inc r20
+NO_POINT:
+	out PORTD,r20
+	cpi r18,MAPSIZE		;Kontroll om spelaren har kört hela banan
+	sts POINTS,r20
+	brne PLAY_LOOP
+	pop YL
+	pop YH
+	pop r20
+	pop r19
+	pop r18
+	pop r17
+	ret
+
+;;HEX TO BCD OUTPUt
+BCD_CODE:
+	push r16
+	push r17
+	
+	lds r16,POINTS		;Laddar poäng från sram
+	mov r17,r16
+	andi r17,$F0
+	andi r16,$0F
+	cpi r16,$0A			;konversion till BCD kodat tal
+	brmi NO_CHANGE
+	subi r16,$0A
+	swap r17
+	inc r17
+	swap r17
+NO_CHANGE:
+	add r16,r17
+	out PORTD,r16		;Utskrift av poäng till BCD Displayerna
+	
+	pop r17
+	pop r16
+	ret
+
+;;JOYSTICK KOD-----------------------
 JOYSTICK:
 	push r16
-	ldi r16,AD_CHAN_X
+	push r17
+	
+	ldi r16,0
 	out ADMUX,r16
-	ldi r16,PRESCALE|(1<<ADEN)
+	ldi r16,(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN)
 	out ADCSRA,r16
 CONVERT_1:
 	sbi ADCSRA,ADSC
 WAIT_1:
 	sbic ADCSRA,ADSC
-	jmp WAIT_1
+	rjmp WAIT_1
 	in r16,ADCH
-	andi r16,$3
-
-	cpi r16,$3
-	brne X_CHECK
-	INCSRAM POSX
-X_CHECK:
-	cpi r16,$0
+	cpi r16,$03
 	brne JOYSTICK_Y
-	DECSRAM POSX
-
+	INCSRAM X_CORD
+	;;Skicka till plotter
+	ldi r17,$04
+	push r17
+	call SEND
+	pop r17
 JOYSTICK_Y:
-	ldi r16,AD_CHAN_Y
+	ldi r16,(1<<MUX0)
 	out ADMUX,r16
-	ldi r16,PRESCALE|(1<<ADEN)
+	ldi r16,(1<<ADPS2)|(1<<ADPS1)|(1<<ADPS0)|(1<<ADEN)
 	out ADCSRA,r16
 CONVERT_2:
 	sbi ADCSRA,ADSC
@@ -151,253 +311,127 @@ WAIT_2:
 	sbic ADCSRA,ADSC
 	jmp WAIT_2
 	in r16,ADCH
-	andi r16,$3
-	
-	cpi r16,$3
+	cpi r16,$03
 	brne Y_CHECK
-	INCSRAM POSY
+	INCSRAM Y_CORD
+	;;Skicka till plotter
+	ldi r17,$01
+	push r17
+	call SEND
+	pop r17
+	rjmp Y_FIN
 Y_CHECK:
-	cpi r16,$0
-	brne JOY_LIM
-	DECSRAM POSY
-JOY_LIM:
-	call LIMITS ; don't fall off world!
+	cpi r16,$00
+	brne Y_FIN
+	DECSRAM Y_CORD
+	;;Skicka till plotter
+	ldi r17,$02
+	push r17
+	call SEND
+	pop r17
+Y_FIN:
+	pop r17
 	pop r16
 	ret
 
-; ---------------------------------------
-; --- LIMITS Limit POSX,POSY coordinates
-; --- Uses r16,r17
-LIMITS:
-	lds r16,POSX ; variable
-	ldi r17,7 ; upper limit+1
-	call POS_LIM ; actual work
-	sts POSX,r16
-	lds r16,POSY ; variable
-	ldi r17,5 ; upper limit+1
-	call POS_LIM ; actual work
-	sts POSY,r16
-	ret
-
-POS_LIM:
-	ori r16,0 ; negative?
-	brmi POS_LESS ; POSX neg => add 1
-	cp r16,r17 ; past edge
-	brne POS_OK
-	subi r16,2
-POS_LESS:
-	inc r16
-POS_OK:
-	ret
-
-; ---------------------------------------
-; --- UPDATE VMEM
-; --- with POSX/Y, TPOSX/Y
-; --- Uses r16, r17
-UPDATE:
-	clr ZH
-	ldi ZL,LOW(POSX)
-	call SETPOS
-	clr ZH
-	;kod f�r att m�let ska blinka
-	lds r16,SEED
-	andi r16,$01
-	cpi r16,1
-	breq BLINK
-	;BLINKKOD
-	ldi ZL,LOW(TPOSX)
-	call SETPOS
-BLINK:
-	ret
-
-; --- SETPOS Set bit pattern of r16 into *Z
-; --- Uses r16, r17
-; --- 1st call Z points to POSX at entry and POSY at exit
-; --- 2nd call Z points to TPOSX at entry and TPOSY at exit
-SETPOS:
-	ld r17,Z+   ; r17=POSX
-	call SETBIT ; r16=bitpattern for VMEM+POSY
-	ld r17,Z ; r17=POSY Z to POSY
-	ldi ZL,LOW(VMEM)
-	add ZL,r17 ; *(VMEM+T/POSY) ZL=VMEM+0..4
-	ld r17,Z ; current line in VMEM
-	or r17,r16 ; OR on place
-	st Z,r17 ; put back into VMEM
-	ret
-
-; --- SETBIT Set bit r17 on r16
-; --- Uses r16, r17
-SETBIT:
-	ldi r16,$01 ; bit to shift
-SETBIT_LOOP:
+	;DELAY PROGRAM-----------------------------
+PLAYER_DELAY: ;250ms delay på 8MHz
+	push r16
+	push r17
+	ldi r16, $01
+PLAYER_DELAY1:
+	ldi r17, $FA
+PLAYER_DELAY2:
 	dec r17
-	brmi SETBIT_END ; til done
-	lsl r16 ; shift
-	jmp SETBIT_LOOP
-SETBIT_END:
+	brne PLAYER_DELAY2
+	dec r16
+	brne PLAYER_DELAY1
+	pop r17
+	pop r16
+	ret
+
+DELAY: ;1ms delay på 8MHz
+	push r16
+	push r17
+	ldi r16, $A0
+DELAY1:
+	ldi r17, $FA
+DELAY2:
+	dec r17
+	brne DELAY2
+	dec r16
+	brne DELAY1
+	pop r17
+	pop r16
+	ret
+
+
+;;SEND underprogram finns i både plotterjoy och mapcreation
+SEND:
+	push ZH
+	push ZL
+	push r17
+	in ZH,SPH
+	in ZL,SPL
+SEND1:
+	sbis PINB,1
+	rjmp SEND1
+	;call DELAY
+	cbi PORTB,4		;Aktiverar slavens spi
+	ldd r17,Z+6
+	out SPDR,r17
+WAIT:
+	sbis SPSR,SPIF
+	rjmp WAIT
+	in r17,SPDR
+	sbi PORTB,4
+
+	pop r17
+	pop ZL
+	pop ZH
+	ret
+
+PEN_DOWN:
+	push r19
+	
+	;;Skicka till plotter
+	ldi r19,$03
+	push r19
+	call SEND
+	pop r19
+
+	pop r19
+	ret
+
+PEN_UP:
+	push r19
+	
+	;;Skicka till plotter
+	ldi r19,$05
+	push r19
+	call SEND
+	pop r19
+
+	pop r19
 	ret
 
 HW_INIT:
+	;IN/UT inställnigar på portar
 	ldi r16,$F0
 	out DDRA,r16
 	ldi r16,$FF
-	out DDRB,r16
-
-	ldi r16,0
-	out PORTA,r16
-	out PORTB,r16
-
-	;avbrott
-	ldi r16,(1<<ISC01)|(1<<ISC00)|(1<<ISC11)|(1<<ISC10)
-	out MCUCR,r16
-	ldi r16,(1<<INT0)|(1<<INT1)
-	out GICR,r16
-	sei ; display on
-
-	ldi r16,0  ;nollst�ller line
-	ldi XH,HIGH(LINE)
-	ldi XL,LOW(LINE)
-	st X,r16
+	out DDRD,r16
+	;Timer0--------------
+	ldi r16,(1<<CS00) 
+	out TCCR0,r16
+	;ldi r16,(1<<TOIE0)|(1<<OCIE1A)
+	;out TIMSK,r16
+	;sei interrupt code
+;SPI SETUP----------------
+	sbi DDRB,4
+	sbi DDRB,5
+	sbi DDRB,7
+	ldi r16, (1<<MSTR)|(1<<SPE)|(1<<SPR1)
+	sbi PORTB,4
+	out SPCR,r16
 	ret
-
-WARM:
-	push r17
-	ldi r17,0
-	sts POSX,r17
-	ldi r17,2
-	sts POSY,r17
-
-	push r0
-	push r0
-	call RANDOM ; RANDOM returns x,y on stack
-	pop r17
-	sts TPOSY,r17
-	pop r17
-	sts TPOSX,r17
-	call ERASE_VMEM
-	pop r17
-	ret
-
-RANDOM:
-	push r16
-	push ZH
-	push ZL
-	in r16,SPH
-	mov ZH,r16
-	in r16,SPL
-	mov ZL,r16
-
-	lds r16,SEED
-	andi r16,$7
-	cpi r16,4
-	brpl Y_ADJUST
-	std Z+6,r16
-	jmp X_RAND
-Y_ADJUST:
-	subi r16,3
-	std Z+6,r16
-X_RAND:
-	lds r16,SEED
-	swap r16
-	andi r16,$7
-	cpi r16,6
-	brpl X_ADJUST
-	cpi r16,2
-	brmi X_ADJUST2
-	std Z+7,r16
-	jmp READY
-X_ADJUST:
-	subi r16,1
-	std Z+7,r16
-	jmp READY
-X_ADJUST2:
-	subi r16,-2
-	std Z+7,r16
-	jmp READY
-READY:
-	pop ZL
-	pop ZH
-	pop r16
-	ret
-
-ERASE_VMEM:
-	push ZH
-	push ZL
-	push r16
-	ldi ZH,HIGH(VMEM)
-	ldi ZL,LOW(VMEM)
-	ldi r16,0
-	st Z+,r16
-	st Z+,r16
-	st Z+,r16
-	st Z+,r16
-	st Z+,r16
-	pop r16
-	pop ZL
-	pop ZH
-	ret
-
-BEEP:
-	push r17
-	ldi r17, BEEP_LENGTH
-	call BEEP_1
-	cbi PORTA,7
-	call GAME_DELAY
-	ldi r17, BEEP_LENGTH
-	call BEEP_1
-	cbi PORTA,7
-	call GAME_DELAY
-	ldi r17,BEEP_LENGTH*2
-	call BEEP_1
-	pop r17
-	ret
-
-BEEP_1:
-	sbi PORTA,7
-	rcall BEEP_DELAY
-	cbi PORTA,7
-	rcall BEEP_DELAY
-	dec r17
-	brne BEEP_1
-	ret
-
-BEEP_DELAY:
-	push r18
-	push r19
-	ldi r18,BEEP_PITCH
-delayYttreLoop:
-	ldi r19,$1F
-delayInreLoop:
-	dec r19
-	brne delayInreLoop
-	dec r18
-	brne delayYttreLoop
-	pop r19
-	pop r18
-    ret
-
-GAME_DELAY:
-	push r16
-	ldi r16,GAME_SPEED
-MAIN_DELAY_LOOP:
-	call MSDELAY
-	dec r16
-	brne MAIN_DELAY_LOOP
-	pop r16
-	ret
-
-MSDELAY:
-	push r18
-	push r19
-	ldi r18,10
-gdelayYttreLoop:
-	ldi r19,$1F
-gdelayInreLoop:
-	dec r19
-	brne gdelayInreLoop
-	dec r18
-	brne gdelayYttreLoop
-	pop r19
-	pop r18
-	ret
-
